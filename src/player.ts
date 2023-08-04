@@ -9,6 +9,7 @@ import {
 	stitch,
 } from 'raxis-server';
 import { type WebSocket } from 'ws';
+import { MinimapData } from './rendermap';
 
 export class Player extends Component {
 	constructor(public id: string, public socket: WebSocket) {
@@ -30,7 +31,7 @@ function addPlayer(ecs: ECS) {
 			sendData(
 				socket,
 				'init',
-				stitch(encodeString(id), Buffer.from(transform.serialize()))
+				stitch(encodeString(id), Buffer.from(transform.serialize()), ecs.getResource(MinimapData).data)
 			);
 		});
 }
