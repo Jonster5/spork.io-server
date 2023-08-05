@@ -10,6 +10,8 @@ import {
 	unstitch,
 } from 'raxis-server';
 import { Transform } from 'raxis-plugins';
+import { Inventory } from './inventory';
+import { Tools } from './tools';
 
 function recieveFromPlayers(ecs: ECS) {
 	const players = ecs
@@ -43,9 +45,14 @@ function recieveFromPlayers(ecs: ECS) {
 function sendToPlayers(ecs: ECS) {
 	const update = stitch(
 		...ecs
-			.query([Player, Transform])
-			.results(([p, t]) =>
-				stitch(encodeString(p.id), Buffer.from(t.serialize()))
+			.query([Player, Transform, Inventory, Tools])
+			.results(([pl, tf, iv, tl]) =>
+				stitch(
+					encodeString(pl.id),
+					Buffer.from(tf.serialize()),
+					Buffer.from(iv.serialize()),
+					Buffer.from(tl.serialize())
+				)
 			)
 	);
 
