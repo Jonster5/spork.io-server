@@ -10,6 +10,9 @@ import {
 } from 'raxis-server';
 import { type WebSocket } from 'ws';
 import { MinimapData } from './rendermap';
+import { Inventory } from './inventory';
+import { Tools } from './tools';
+import { Health } from './health';
 
 export class Player extends Component {
 	constructor(public id: string, public socket: WebSocket) {
@@ -25,13 +28,29 @@ function addPlayer(ecs: ECS) {
 
 			const id = randomUUID();
 			const transform = new Transform(new Vec2(100, 100));
+			const health = new Health(100);
+			const inventory = new Inventory();
+			const tools = new Tools();
 
-			ecs.spawn(new Player(id, socket), transform);
+			ecs.spawn(
+				new Player(id, socket),
+				transform,
+				inventory,
+				tools,
+				health
+			);
 
 			sendData(
 				socket,
 				'init',
-				stitch(encodeString(id), Buffer.from(transform.serialize()), ecs.getResource(MinimapData).data)
+				stitch(
+					encodeString(id),
+					Buffer.from(transform.serialize()),
+					ecs.getResource(MinimapData).data,
+					Buffer.from(health.serialize()),
+					Buffer.from(inventory.serialize()),
+					Buffer.from(tools.serialize())
+				)
 			);
 		});
 }

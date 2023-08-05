@@ -11,16 +11,28 @@ import { PlayerPlugin } from './player';
 import { EndpointPlugin } from './endpoints';
 import { MapPlugin } from './rendermap';
 import { ChunksPlugin } from './chunks';
+import { InventoryPlugin } from './inventory';
+import { ToolsPlugin } from './tools';
+import { HealthPlugin } from './health';
 
 new ECS()
-	.insertPlugins(HostPlugin, ServerPlugin, TimePlugin, TransformPlugin, ChunksPlugin)
+	.insertPlugins(HostPlugin, ServerPlugin, TimePlugin, TransformPlugin)
 	.insertResource(
 		new HostSettings({
 			port: 5100,
 			cb: (p) => console.log(`Listing on port ${p}`),
 		})
 	)
-	.insertPlugins(EndpointPlugin, PlayerPlugin, UpdatePlugin, MapPlugin)
+	.insertPlugins(
+		EndpointPlugin,
+		PlayerPlugin,
+		UpdatePlugin,
+		MapPlugin,
+		ChunksPlugin,
+		InventoryPlugin,
+		ToolsPlugin,
+		HealthPlugin
+	)
 	.addStartupSystem((ecs) => {
 		createServerPath(ecs, 'game');
 		createServerPath(ecs, 'chat');
