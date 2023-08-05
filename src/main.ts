@@ -8,6 +8,7 @@ import {
 import { TimePlugin, TransformPlugin } from 'raxis-plugins';
 import { UpdatePlugin } from './update';
 import { PlayerPlugin } from './player';
+import { EndpointPlugin } from './endpoints';
 import { MapPlugin } from './rendermap';
 import { ChunksPlugin } from './chunks';
 
@@ -19,7 +20,7 @@ new ECS()
 			cb: (p) => console.log(`Listing on port ${p}`),
 		})
 	)
-	.insertPlugins(PlayerPlugin, UpdatePlugin, MapPlugin)
+	.insertPlugins(EndpointPlugin, PlayerPlugin, UpdatePlugin, MapPlugin)
 	.addStartupSystem((ecs) => {
 		createServerPath(ecs, 'game');
 		createServerPath(ecs, 'chat');
