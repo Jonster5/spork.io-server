@@ -1,4 +1,4 @@
-import { ECS, With } from 'raxis';
+import { ECS, Vec2, With } from 'raxis';
 import { Player } from './player';
 import {
 	SocketMessageEvent,
@@ -12,6 +12,7 @@ import {
 import { Transform } from 'raxis-plugins';
 import { Inventory } from './inventory';
 import { Tools } from './tools';
+import map from './assets/map.json'
 
 function recieveFromPlayers(ecs: ECS) {
 	const players = ecs
@@ -32,12 +33,26 @@ function recieveFromPlayers(ecs: ECS) {
 					data[1].byteOffset + data[1].byteLength
 				)
 			);
+			const flags = data[2];
 
 			const player = players.find((p) => p.get(Player).id === id);
 			if (!player) {
 				return;
 			}
 
+			const gridPosition = transform.pos.clone().div(500).floor()
+			if (!(gridPosition.x >= map.size[0]/2 || gridPosition.x < -map.size[0]/2 || gridPosition.y >= map.size[1]/2 || gridPosition.y < -map.size[1]/2)) {
+                if (flags.readUint8(0)) {
+					console.log(player.get(Inventory).stone, player.get(Inventory).wood)
+					if (map.object[gridPosition.x + map.size[0]/2][gridPosition.y + map.size[1]/2] == 2) {
+						player.get(Inventory).wood += 1
+					}
+					if (map.object[gridPosition.x + map.size[0]/2][gridPosition.y + map.size[1]/2] == 1) {
+						player.get(Inventory).stone += 1
+					}
+				}
+            }
+			
 			player.replace(transform);
 		});
 }

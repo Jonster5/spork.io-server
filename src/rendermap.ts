@@ -18,7 +18,13 @@ function renderMap(ecs: ECS) {
 
     biomes.forEach((row, i) => {
         row.forEach((cell, j) => {
-            bufferdata.writeUint8(cell, 4 + i + (map.size[1]-1-j) * map.size[0])
+            if (map.object[i][j] == 1) {
+                bufferdata.writeUint8(255, 4 + i + (map.size[1]-1-j) * map.size[0])
+            } else if (map.object[i][j] == 2) {
+                bufferdata.writeUint8(254, 4 + i + (map.size[1]-1-j) * map.size[0])
+            } else {
+                bufferdata.writeUint8(cell, 4 + i + (map.size[1]-1-j) * map.size[0])
+            }
         });
     });
 

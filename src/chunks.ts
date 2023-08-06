@@ -28,7 +28,7 @@ function listenChunks(ecs: ECS) {
             }
         }
 
-        const permitChunkBuffer = Buffer.alloc(5 * chunksPermitted.length)
+        const permitChunkBuffer = Buffer.alloc(6 * chunksPermitted.length)
         chunksPermitted.forEach((chunk, i) => {
             if (chunk[0] >= map.size[0]/2 || chunk[0] < -map.size[0]/2 || chunk[1] >= map.size[1]/2 || chunk[1] < -map.size[1]/2) {
                 permitChunkBuffer.writeUint8(4, i)
@@ -36,13 +36,21 @@ function listenChunks(ecs: ECS) {
                 permitChunkBuffer.writeUint8(map.biome[chunk[0]+map.size[0]/2][chunk[1]+map.size[1]/2], i)
             }
         })
+
         chunksPermitted.forEach((chunk, i) => {
-            permitChunkBuffer.writeInt16LE(chunk[0], i*4 + 0 + chunksPermitted.length)
-            permitChunkBuffer.writeInt16LE(chunk[1], i*4 + 2 + chunksPermitted.length)
+            if (chunk[0] >= map.size[0]/2 || chunk[0] < -map.size[0]/2 || chunk[1] >= map.size[1]/2 || chunk[1] < -map.size[1]/2) {
+                permitChunkBuffer.writeUint8(0, i + chunksPermitted.length)
+            } else {
+                permitChunkBuffer.writeUint8(map.object[chunk[0]+map.size[0]/2][chunk[1]+map.size[1]/2], i + chunksPermitted.length)
+            }
+            
         })
-
-        //console.log(chunksPermitted)
-
+        
+        chunksPermitted.forEach((chunk, i) => {
+            permitChunkBuffer.writeInt16LE(chunk[0], i*4 + 0 + 2 * chunksPermitted.length)
+            permitChunkBuffer.writeInt16LE(chunk[1], i*4 + 2 + 2 * chunksPermitted.length)
+        })
+        
         sendData(event.socket, 'chunks-permitted', permitChunkBuffer)
     })
 }
