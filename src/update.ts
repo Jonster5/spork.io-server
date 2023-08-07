@@ -1,4 +1,4 @@
-import { ECS, Vec2, With } from 'raxis';
+import { ECS, ECSEvent, Vec2, With } from 'raxis';
 import { Player } from './player';
 import {
 	SocketMessageEvent,
@@ -9,7 +9,7 @@ import {
 	stitch,
 	unstitch,
 } from 'raxis-server';
-import { Transform } from 'raxis-plugins';
+import { Transform, checkTimer, setTimer } from 'raxis-plugins';
 import { Inventory } from './inventory';
 import { Tools } from './tools';
 import map from './assets/map.json'
@@ -40,21 +40,26 @@ function recieveFromPlayers(ecs: ECS) {
 				return;
 			}
 
+			player.replace(transform);
+
+			if (checkTimer(ecs)) return;
+
 			const gridPosition = transform.pos.clone().div(500).floor()
 			if (!(gridPosition.x >= map.size[0]/2 || gridPosition.x < -map.size[0]/2 || gridPosition.y >= map.size[1]/2 || gridPosition.y < -map.size[1]/2)) {
-                if (flags.readUint8(0)) {
-					console.log(player.get(Inventory).stone, player.get(Inventory).wood)
+                if (flags.readUint8(0) /* && Vec2.fromPolar(1,transform.angle).dot(new Vec2(gridPosition.x*500+250,gridPosition.y*500-250)) > 0.5 */) {
 					if (map.object[gridPosition.x + map.size[0]/2][gridPosition.y + map.size[1]/2] == 2) {
 						player.get(Inventory).wood += 1
+						setTimer(ecs, 1000)
 					}
 					if (map.object[gridPosition.x + map.size[0]/2][gridPosition.y + map.size[1]/2] == 1) {
 						player.get(Inventory).stone += 1
+						setTimer(ecs, 1000)
 					}
 				}
             }
-			
-			player.replace(transform);
 		});
+
+	
 }
 
 function sendToPlayers(ecs: ECS) {
