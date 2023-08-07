@@ -49,12 +49,11 @@ function recieveFromPlayers(ecs: ECS) {
                 if (flags.readUint8(0) /* && Vec2.fromPolar(1,transform.angle).dot(new Vec2(gridPosition.x*500+250,gridPosition.y*500-250)) > 0.5 */) {
 					if (map.object[gridPosition.x + map.size[0]/2][gridPosition.y + map.size[1]/2] == 2) {
 						player.get(Inventory).wood += 1
-						setTimer(ecs, 1000)
 					}
 					if (map.object[gridPosition.x + map.size[0]/2][gridPosition.y + map.size[1]/2] == 1) {
 						player.get(Inventory).stone += 1
-						setTimer(ecs, 1000)
 					}
+					setTimer(ecs, 3000)
 				}
             }
 		});
