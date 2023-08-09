@@ -14,13 +14,15 @@ import { ChunksPlugin } from './chunks';
 import { InventoryPlugin } from './inventory';
 import { ToolsPlugin } from './tools';
 import { HealthPlugin } from './health';
+import { GatheringPlugin } from './gathering';
+import { FlagsPlugin } from './flags';
 
 new ECS()
 	.insertPlugins(HostPlugin, ServerPlugin, TimePlugin, TransformPlugin)
 	.insertResource(
 		new HostSettings({
 			port: 5100,
-			cb: (p) => console.log(`Listing on port ${p}`),
+			cb: (p) => console.log(`Listening on port ${p}`),
 		})
 	)
 	.insertPlugins(
@@ -31,7 +33,9 @@ new ECS()
 		ChunksPlugin,
 		InventoryPlugin,
 		ToolsPlugin,
-		HealthPlugin
+		HealthPlugin,
+		FlagsPlugin,
+		GatheringPlugin
 	)
 	.addStartupSystem((ecs) => {
 		createServerPath(ecs, 'game');

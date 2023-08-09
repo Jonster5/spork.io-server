@@ -13,6 +13,7 @@ import { MinimapData } from './rendermap';
 import { Inventory } from './inventory';
 import { Tools } from './tools';
 import { Health } from './health';
+import { Flags } from './flags';
 
 export class Player extends Component {
 	constructor(public id: string, public socket: WebSocket) {
@@ -27,17 +28,22 @@ function addPlayer(ecs: ECS) {
 			if (handler.path !== 'game') return;
 
 			const id = randomUUID();
-			const transform = new Transform(new Vec2(100, 100), Vec2.fromPolar(25000, Math.random()*Math.PI*2));
+			const transform = new Transform(
+				new Vec2(100, 100),
+				Vec2.fromPolar(25000, Math.random() * Math.PI * 2)
+			);
 			const health = new Health(100);
 			const inventory = new Inventory();
 			const tools = new Tools();
+			const flags = new Flags(false, 'wood');
 
 			ecs.spawn(
 				new Player(id, socket),
 				transform,
 				inventory,
 				tools,
-				health
+				health,
+				flags
 			);
 
 			sendData(
@@ -49,7 +55,8 @@ function addPlayer(ecs: ECS) {
 					ecs.getResource(MinimapData).data,
 					Buffer.from(health.serialize()),
 					Buffer.from(inventory.serialize()),
-					Buffer.from(tools.serialize())
+					Buffer.from(tools.serialize()),
+					Buffer.from(flags.serialize())
 				)
 			);
 		});

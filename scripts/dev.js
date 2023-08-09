@@ -5,7 +5,7 @@ const ctx = await context({
 	entryPoints: ['src/main.ts'],
 	outfile: '.dev/main.js',
 	bundle: true,
-	sourcemap: true,
+	sourcemap: 'both',
 	platform: 'node',
 	tsconfig: './tsconfig.json',
 	format: 'esm',

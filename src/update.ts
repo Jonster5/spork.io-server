@@ -12,7 +12,8 @@ import {
 import { Transform, checkTimer, setTimer } from 'raxis-plugins';
 import { Inventory } from './inventory';
 import { Tools } from './tools';
-import map from './assets/map.json'
+import map from './assets/map.json';
+import { Flags } from './flags';
 
 function recieveFromPlayers(ecs: ECS) {
 	const players = ecs
@@ -33,7 +34,12 @@ function recieveFromPlayers(ecs: ECS) {
 					data[1].byteOffset + data[1].byteLength
 				)
 			);
-			const flags = data[2];
+			const flags = Flags.deserialize(
+				data[2].buffer.slice(
+					data[2].byteOffset,
+					data[2].byteOffset + data[2].byteLength
+				)
+			);
 
 			const player = players.find((p) => p.get(Player).id === id);
 			if (!player) {
@@ -41,38 +47,25 @@ function recieveFromPlayers(ecs: ECS) {
 			}
 
 			player.replace(transform);
-
-			if (checkTimer(ecs)) return;
-
-			const gridPosition = transform.pos.clone().div(500).floor()
-			if (!(gridPosition.x >= map.size[0]/2 || gridPosition.x < -map.size[0]/2 || gridPosition.y >= map.size[1]/2 || gridPosition.y < -map.size[1]/2)) {
-                if (flags.readUint8(0) /* && Vec2.fromPolar(1,transform.angle).dot(new Vec2(gridPosition.x*500+250,gridPosition.y*500-250)) > 0.5 */) {
-					if (map.object[gridPosition.x + map.size[0]/2][gridPosition.y + map.size[1]/2] == 2) {
-						player.get(Inventory).wood += 1
-					}
-					if (map.object[gridPosition.x + map.size[0]/2][gridPosition.y + map.size[1]/2] == 1) {
-						player.get(Inventory).stone += 1
-					}
-					setTimer(ecs, 3000)
-				}
-            }
+			player.replace(flags);
 		});
-
-	
 }
 
 function sendToPlayers(ecs: ECS) {
 	const update = stitch(
 		...ecs
-			.query([Player, Transform, Inventory, Tools])
-			.results(([pl, tf, iv, tl]) =>
-				stitch(
-					encodeString(pl.id),
-					Buffer.from(tf.serialize()),
-					Buffer.from(iv.serialize()),
-					Buffer.from(tl.serialize())
-				)
-			)
+			.query([Player, Transform, Inventory, Tools, Flags])
+			.results(([{ id }, transform, inventory, tools, flags]) => {
+				// console.log(inventory.wood, inventory.stone);
+
+				return stitch(
+					encodeString(id),
+					Buffer.from(transform.serialize()),
+					Buffer.from(inventory.serialize()),
+					Buffer.from(tools.serialize()),
+					Buffer.from(flags.serialize())
+				);
+			})
 	);
 
 	getServerPath(ecs, 'game').server.clients.forEach((socket) => {
