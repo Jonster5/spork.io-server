@@ -27,7 +27,7 @@ function addPlayer(ecs: ECS) {
 			if (handler.path !== 'game') return;
 
 			const id = randomUUID();
-			const transform = new Transform(new Vec2(100, 100));
+			const transform = new Transform(new Vec2(100, 100), Vec2.fromPolar(25000, Math.random()*Math.PI*2));
 			const health = new Health(100);
 			const inventory = new Inventory();
 			const tools = new Tools();
