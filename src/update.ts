@@ -12,7 +12,6 @@ import {
 import { Transform, checkTimer, setTimer } from 'raxis-plugins';
 import { Inventory } from './inventory';
 import { Tools } from './tools';
-import map from './assets/map.json';
 import { Flags } from './flags';
 
 function recieveFromPlayers(ecs: ECS) {
@@ -52,12 +51,11 @@ function recieveFromPlayers(ecs: ECS) {
 }
 
 function sendToPlayers(ecs: ECS) {
+
 	const update = stitch(
 		...ecs
 			.query([Player, Transform, Inventory, Tools, Flags])
 			.results(([{ id }, transform, inventory, tools, flags]) => {
-				// console.log(inventory.wood, inventory.stone);
-
 				return stitch(
 					encodeString(id),
 					Buffer.from(transform.serialize()),
