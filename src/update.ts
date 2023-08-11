@@ -27,12 +27,6 @@ function recieveFromPlayers(ecs: ECS) {
 
 			const data = unstitch(body);
 			const id = decodeString(data[0]);
-			const transform = Transform.deserialize(
-				data[1].buffer.slice(
-					data[1].byteOffset,
-					data[1].byteOffset + data[1].byteLength
-				)
-			);
 			const flags = Flags.deserialize(
 				data[2].buffer.slice(
 					data[2].byteOffset,
@@ -45,7 +39,14 @@ function recieveFromPlayers(ecs: ECS) {
 				return;
 			}
 
-			player.replace(transform);
+			player
+				.get(Transform)
+				.setFromBuffer(
+					data[1].buffer.slice(
+						data[1].byteOffset,
+						data[1].byteOffset + data[1].byteLength
+					)
+				);
 			player.replace(flags);
 		});
 }
@@ -58,7 +59,7 @@ function sendToPlayers(ecs: ECS) {
 			.results(([{ id }, transform, inventory, tools, flags]) => {
 				return stitch(
 					encodeString(id),
-					Buffer.from(transform.serialize()),
+					Buffer.from(transform.serializeUnsafe()),
 					Buffer.from(inventory.serialize()),
 					Buffer.from(tools.serialize()),
 					Buffer.from(flags.serialize())

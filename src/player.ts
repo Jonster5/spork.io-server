@@ -28,7 +28,7 @@ function addPlayer(ecs: ECS) {
 			if (handler.path !== 'game') return;
 
 			const id = randomUUID();
-			const transform = new Transform(
+			const transform = Transform.create(
 				new Vec2(100, 100),
 				Vec2.fromPolar(25000, Math.random() * Math.PI * 2)
 			);
@@ -51,7 +51,7 @@ function addPlayer(ecs: ECS) {
 				'init',
 				stitch(
 					encodeString(id),
-					Buffer.from(transform.serialize()),
+					Buffer.from(transform.serializeUnsafe()),
 					ecs.getResource(MinimapData).data,
 					Buffer.from(health.serialize()),
 					Buffer.from(inventory.serialize()),
