@@ -1,4 +1,7 @@
 import { Component, ECS, ECSEvent } from 'raxis';
+import { SocketMessageEvent, decodeString, unstitch } from 'raxis-server';
+import { Player } from './player';
+import { Inventory } from './inventory';
 
 export type ToolType = 'wood' | 'stone' | 'melee' | 'projectile';
 export type ToolTier = 0 | 1 | 2 | 3;
@@ -31,6 +34,31 @@ export class Tools extends Component {
 	}
 }
 
+function recieveUpgradeRequests(ecs: ECS) {
+	ecs.getEventReader(SocketMessageEvent).get().forEach((event) => {
+        if (event.handler.path !== 'game' || event.type !== 'upgrade-request') return
+
+        const dataRaw = unstitch(event.body)
+        const targetUUID = decodeString(dataRaw[0])
+		const targetTool = dataRaw[1].readUint8(0)
+
+        const players = ecs.query([Player, Tools, Inventory]).results()
+		for (let [player, tool, inventory] of players) {
+			if (player.id !== targetUUID) continue;
+			
+			switch (targetTool) {
+				case(0):
+					if (inventory.wood >= 20 && tool.wood < 3) {tool.wood++; inventory.wood -= 20}
+					break;
+				case(1):
+					if (inventory.stone >= 20 && tool.wood < 3) {tool.stone++; inventory.stone -= 20}
+					break
+			}
+		}
+	})
+}
+
 export function ToolsPlugin(ecs: ECS) {
-	ecs.addComponentTypes(Tools);
+	ecs.addComponentTypes(Tools)
+	.addMainSystem(recieveUpgradeRequests)
 }
