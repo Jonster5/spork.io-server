@@ -14,12 +14,7 @@ export class Tools extends Component {
 	projectile: ToolTier = 0;
 
 	serialize(): ArrayBufferLike {
-		return new Uint8Array([
-			this.wood,
-			this.stone,
-			this.melee,
-			this.projectile,
-		]).buffer;
+		return new Uint8Array([this.wood, this.stone, this.melee, this.projectile]).buffer;
 	}
 
 	static deserialize(buffer: ArrayBufferLike): Component {
@@ -35,30 +30,37 @@ export class Tools extends Component {
 }
 
 function recieveUpgradeRequests(ecs: ECS) {
-	ecs.getEventReader(SocketMessageEvent).get().forEach((event) => {
-        if (event.handler.path !== 'game' || event.type !== 'upgrade-request') return
+	ecs.getEventReader(SocketMessageEvent)
+		.get()
+		.forEach((event) => {
+			if (event.handler.path !== 'game' || event.type !== 'upgrade-request') return;
 
-        const dataRaw = unstitch(event.body)
-        const targetUUID = decodeString(dataRaw[0])
-		const targetTool = dataRaw[1].readUint8(0)
+			const dataRaw = unstitch(event.body);
+			const targetUUID = decodeString(dataRaw[0]);
+			const targetTool = decodeString(dataRaw[1]) as ToolType;
 
-        const players = ecs.query([Player, Tools, Inventory]).results()
-		for (let [player, tool, inventory] of players) {
-			if (player.id !== targetUUID) continue;
-			
-			switch (targetTool) {
-				case(0):
-					if (inventory.wood >= 20 && tool.wood < 3) {tool.wood++; inventory.wood -= 20}
-					break;
-				case(1):
-					if (inventory.stone >= 20 && tool.wood < 3) {tool.stone++; inventory.stone -= 20}
-					break
+			const players = ecs.query([Player, Tools, Inventory]).results();
+			for (let [player, tool, inventory] of players) {
+				if (player.id !== targetUUID) continue;
+
+				switch (targetTool) {
+					case 'wood':
+						if (inventory.wood >= 20 && tool.wood < 3) {
+							tool.wood++;
+							inventory.wood -= 20;
+						}
+						break;
+					case 'stone':
+						if (inventory.stone >= 20 && tool.wood < 3) {
+							tool.stone++;
+							inventory.stone -= 20;
+						}
+						break;
+				}
 			}
-		}
-	})
+		});
 }
 
 export function ToolsPlugin(ecs: ECS) {
-	ecs.addComponentTypes(Tools)
-	.addMainSystem(recieveUpgradeRequests)
+	ecs.addComponentTypes(Tools).addMainSystem(recieveUpgradeRequests);
 }
