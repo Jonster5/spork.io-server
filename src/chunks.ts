@@ -36,7 +36,7 @@ function listenChunks(ecs: ECS) {
 	ecs.getEventReader(SocketMessageEvent)
 		.get()
 		.forEach((event) => {
-			if (event.handler.path !== 'map' || event.type !== 'chunks') return;
+			if (event.handler.path !== 'game' || event.type !== 'chunks') return;
 
 			const dataRaw = unstitch(event.body);
 			const targetUUID = decodeString(dataRaw[0]);
@@ -63,6 +63,8 @@ function listenChunks(ecs: ECS) {
 			}
 
 			const permitChunkBuffer = Buffer.alloc(6 * chunksPermitted.length);
+			const chunkCoordsBuffer = Buffer.alloc(4 * chunksPermitted.length);
+			const blocksBuffer = Buffer.alloc(25 * chunksPermitted.length);
 			chunksPermitted.forEach((chunk, i) => {
 				if (
 					chunk[0] >= map.size[0] / 2 ||
@@ -90,17 +92,21 @@ function listenChunks(ecs: ECS) {
 						i + chunksPermitted.length
 					);
 				}
+				blocksBuffer.fill(
+					worldData.blockData[chunk[0] + map.size[0] / 2][chunk[1] + map.size[1] / 2].blocks,
+					i * 25
+				);
 			});
-
 			chunksPermitted.forEach((chunk, i) => {
 				permitChunkBuffer.writeInt16LE(chunk[0], i * 4 + 0 + 2 * chunksPermitted.length);
 				permitChunkBuffer.writeInt16LE(chunk[1], i * 4 + 2 + 2 * chunksPermitted.length);
+				chunkCoordsBuffer.writeInt16LE(chunk[0], i * 4 + 0);
+				chunkCoordsBuffer.writeInt16LE(chunk[1], i * 4 + 2);
 			});
 
-			sendData(event.socket, 'chunks-permitted', permitChunkBuffer);
+			sendData(event.socket, 'chunks-permitted', stitch(permitChunkBuffer, chunkCoordsBuffer, blocksBuffer));
 		});
 }
-
 function listenBlocks(ecs: ECS) {
 	ecs.getEventReader(SocketMessageEvent)
 		.get()
@@ -194,5 +200,5 @@ function listenBlocks(ecs: ECS) {
 
 export function ChunksPlugin(ecs: ECS) {
 	ecs.insertResource(new WorldData());
-	ecs.addMainSystem(listenChunks);
+	ecs.addMainSystems(listenChunks, listenBlocks);
 }
