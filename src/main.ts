@@ -1,11 +1,6 @@
 import { ECS } from 'raxis';
-import {
-	HostPlugin,
-	HostSettings,
-	ServerPlugin,
-	createServerPath,
-} from 'raxis-server';
-import { TimePlugin, TransformPlugin } from 'raxis-plugins';
+import { HostPlugin, HostSettings, ServerPlugin, createServerPath } from 'raxis-server';
+import { TimePlugin, TransformPlugin, TweenPlugin } from 'raxis-plugins';
 import { UpdatePlugin } from './update';
 import { PlayerPlugin } from './player';
 import { EndpointPlugin } from './endpoints';
@@ -16,9 +11,11 @@ import { ToolsPlugin } from './tools';
 import { HealthPlugin } from './health';
 import { GatheringPlugin } from './gathering';
 import { FlagsPlugin } from './flags';
+import { NPCPlugin } from './npc';
+import { AIPlugin } from './ai';
 
 new ECS()
-	.insertPlugins(HostPlugin, ServerPlugin, TimePlugin, TransformPlugin)
+	.insertPlugins(HostPlugin, ServerPlugin, TimePlugin, TransformPlugin, TweenPlugin)
 	.insertResource(
 		new HostSettings({
 			port: 5100,
@@ -35,10 +32,13 @@ new ECS()
 		ToolsPlugin,
 		HealthPlugin,
 		FlagsPlugin,
-		GatheringPlugin
+		GatheringPlugin,
+		NPCPlugin,
+		AIPlugin
 	)
 	.addStartupSystem((ecs) => {
 		createServerPath(ecs, 'game');
+		createServerPath(ecs, 'map');
 		createServerPath(ecs, 'chat');
 	})
-	.run(30);
+	.run(16);
