@@ -14,8 +14,4 @@ const ctx = await context({
 
 await ctx.watch();
 
-spawn(
-	'node',
-	['--enable-source-maps', '--no-warnings', '--watch', '.dev/main.js'],
-	{ stdio: 'inherit' }
-);
+spawn('node', ['--enable-source-maps', '--no-warnings', '--watch', '.dev/main.js'], { stdio: 'inherit' });
