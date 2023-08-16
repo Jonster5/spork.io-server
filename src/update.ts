@@ -23,15 +23,12 @@ function recieveFromPlayers(ecs: ECS) {
 	ecs.getEventReader(SocketMessageEvent)
 		.get()
 		.forEach(({ handler, type, body }) => {
-			if (handler.path !== 'game' || type !== 'update') return;
+			if (handler.path !== 'game' || type !== 'player-update') return;
 
 			const data = unstitch(body);
 			const id = decodeString(data[0]);
 			const flags = Flags.deserialize(
-				data[2].buffer.slice(
-					data[2].byteOffset,
-					data[2].byteOffset + data[2].byteLength
-				)
+				data[2].buffer.slice(data[2].byteOffset, data[2].byteOffset + data[2].byteLength)
 			);
 
 			const player = players.find((p) => p.get(Player).id === id);
@@ -41,18 +38,12 @@ function recieveFromPlayers(ecs: ECS) {
 
 			player
 				.get(Transform)
-				.setFromBuffer(
-					data[1].buffer.slice(
-						data[1].byteOffset,
-						data[1].byteOffset + data[1].byteLength
-					)
-				);
+				.setFromBuffer(data[1].buffer.slice(data[1].byteOffset, data[1].byteOffset + data[1].byteLength));
 			player.replace(flags);
 		});
 }
 
 function sendToPlayers(ecs: ECS) {
-
 	const update = stitch(
 		...ecs
 			.query([Player, Transform, Inventory, Tools, Flags])
@@ -68,7 +59,7 @@ function sendToPlayers(ecs: ECS) {
 	);
 
 	getServerPath(ecs, 'game').server.clients.forEach((socket) => {
-		sendData(socket, 'update', update);
+		sendData(socket, 'player-update', update);
 	});
 }
 
