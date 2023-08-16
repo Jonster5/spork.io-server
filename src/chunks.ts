@@ -3,6 +3,7 @@ import { SocketMessageEvent, decodeString, encodeString, getServerPath, sendData
 import { Player } from "./player";
 import { Transform } from "raxis-plugins";
 import map from './assets/map.json'
+import { ECS } from 'raxis';
 
 export class WorldData extends Resource {
     constructor(public blockData: BlockData[][] = Array(map.size[1]).fill(null).map(() => Array(map.size[0]).fill(null).map(() => new BlockData()))) {
@@ -60,7 +61,24 @@ function listenChunks(ecs: ECS) {
             }
             blocksBuffer.fill(worldData.blockData[chunk[0]+map.size[0]/2][chunk[1]+map.size[1]/2].blocks, i * 25)
         })
-        
+        const permitChunkBuffer = Buffer.alloc(6 * chunksPermitted.length)
+        const chunkCoordsBuffer = Buffer.alloc(4 * chunksPermitted.length)
+        const blocksBuffer = Buffer.alloc( 25 * chunksPermitted.length)
+        chunksPermitted.forEach((chunk, i) => {
+            if (chunk[0] >= map.size[0]/2 || chunk[0] < -map.size[0]/2 || chunk[1] >= map.size[1]/2 || chunk[1] < -map.size[1]/2) {
+                permitChunkBuffer.writeUint8(4, i)
+            } else {
+                permitChunkBuffer.writeUint8(map.biome[chunk[0]+map.size[0]/2][chunk[1]+map.size[1]/2], i)
+            }
+        })
+        chunksPermitted.forEach((chunk, i) => {
+            if (chunk[0] >= map.size[0]/2 || chunk[0] < -map.size[0]/2 || chunk[1] >= map.size[1]/2 || chunk[1] < -map.size[1]/2) {
+                permitChunkBuffer.writeUint8(0, i + chunksPermitted.length)
+            } else {
+                permitChunkBuffer.writeUint8(map.object[chunk[0]+map.size[0]/2][chunk[1]+map.size[1]/2], i + chunksPermitted.length)
+            }
+            blocksBuffer.fill(worldData.blockData[chunk[0]+map.size[0]/2][chunk[1]+map.size[1]/2].blocks, i * 25)
+        })
         chunksPermitted.forEach((chunk, i) => {
             permitChunkBuffer.writeInt16LE(chunk[0], i*4 + 0 + 2 * chunksPermitted.length)
             permitChunkBuffer.writeInt16LE(chunk[1], i*4 + 2 + 2 * chunksPermitted.length)
@@ -71,7 +89,7 @@ function listenChunks(ecs: ECS) {
         sendData(event.socket, 'chunks-permitted', stitch(permitChunkBuffer, chunkCoordsBuffer, blocksBuffer))
     })
 }
-
+          
 function listenBlocks(ecs: ECS) {
     ecs.getEventReader(SocketMessageEvent).get().forEach((event) => {
         if (event.handler.path !== 'game' || event.type !== 'request-block-place') return

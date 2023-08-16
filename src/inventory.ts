@@ -8,8 +8,7 @@ export class Inventory extends Component {
 	gold: number = 0;
 
 	serialize(): ArrayBufferLike {
-		return new Uint8Array([this.wood, this.stone, this.food, this.gold])
-			.buffer;
+		return new Uint16Array([this.wood, this.stone, this.food, this.gold]).buffer;
 	}
 }
 
