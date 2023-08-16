@@ -86,7 +86,6 @@ function listenBlocks(ecs: ECS) {
 
         for (let [player, transform] of players) {
             if (player.id === targetUUID) {
-
                 if (Math.abs(transform.pos.x - requestLocation.readInt16LE(0)*100) < 4000 && Math.abs(transform.pos.y - requestLocation.readInt16LE(2)*100) < 4000) {
 
                     const chunk = new Vec2(requestLocation.readInt16LE(0)/5, requestLocation.readInt16LE(2)/5).floor()
