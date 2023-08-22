@@ -49,7 +49,7 @@ export function updateClients(ecs: ECS) {
 			const npcData = ecs
 				.query([NPC, Transform, Health])
 				.results()
-				.filter(([, n]) => n.pos.distanceToSq(pos) < 5000 ** 2)
+				.filter(([, n]) => n.pos.distanceToSq(pos) < (5 * 500) ** 2)
 				.map(([n, t, h]) =>
 					stitch(Buffer.from(n.serialize()), Buffer.from(t.serializeUnsafe()), Buffer.from(h.serialize()))
 				);
