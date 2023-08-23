@@ -10,7 +10,6 @@ import { Health } from './health';
 import { Flags } from './flags';
 
 export class Player extends Component {
-	chunkSocket: WebSocket;
 	constructor(public id: string, public socket: WebSocket) {
 		super();
 	}
@@ -22,7 +21,7 @@ function addPlayer(ecs: ECS) {
 		.forEach(({ handler, socket }) => {
 			if (handler.path !== 'game') return;
 			const id = randomUUID();
-			const transform = Transform.create(new Vec2(100, 100), Vec2.fromPolar(25000, Math.random() * Math.PI * 2));
+			const transform = Transform.create(new Vec2(80, 80), Vec2.fromPolar(25000, Math.random() * Math.PI * 2));
 			const health = new Health(100);
 			const inventory = new Inventory();
 			const tools = new Tools();

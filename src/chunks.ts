@@ -9,104 +9,136 @@ import {
 	unstitch,
 } from 'raxis-server';
 import { Player } from './player';
-import { Transform } from 'raxis-plugins';
+import { Transform, checkTimer, setTimer } from 'raxis-plugins';
 import map from './assets/map.json';
 
 export class WorldData extends Resource {
-	constructor(
-		public blockData: BlockData[][] = Array(map.size[1])
-			.fill(null)
-			.map(() =>
-				Array(map.size[0])
-					.fill(null)
-					.map(() => new BlockData())
-			)
-	) {
-		super();
-	}
+	chunkData: ChunkData[][] = new Array(map.size[0])
+		.fill(null)
+		.map(() => new Array(map.size[1]).fill(null).map(() => new ChunkData()));
 }
 
-export class BlockData extends Component {
-	constructor(public blocks: Uint8Array = new Uint8Array(25)) {
-		super();
-	}
-}
-
-function listenChunks(ecs: ECS) {
-	ecs.getEventReader(SocketMessageEvent)
-		.get()
-		.forEach((event) => {
-			if (event.handler.path !== 'game' || event.type !== 'chunks') return;
-
-			const dataRaw = unstitch(event.body);
-			const targetUUID = decodeString(dataRaw[0]);
-
-			const players = ecs.query([Player, Transform]).results();
-			const chunksPermitted = [];
-			const worldData = ecs.getResource(WorldData);
-
-			for (let [player, transform] of players) {
-				if (player.id === targetUUID) {
-					const gridPosition = transform.pos.clone().div(500).floor();
-
-					for (let i = 0; i < dataRaw[1].byteLength / 4; i++) {
-						if (
-							Math.abs(dataRaw[1].readInt16LE(i * 4) - gridPosition.x) <= 5 &&
-							Math.abs(dataRaw[1].readInt16LE(i * 4 + 2) - gridPosition.y) <= 5
-						) {
-							chunksPermitted.push([dataRaw[1].readInt16LE(i * 4), dataRaw[1].readInt16LE(i * 4 + 2)]);
-						}
-					}
-
-					break;
-				}
+function makeBlock(type: BlockType, id: string) {
+	return {
+		type,
+		id,
+		health: (() => {
+			switch (type) {
+				default:
+					return 100;
 			}
+		})(),
+	};
+}
 
-			const permitChunkBuffer = Buffer.alloc(6 * chunksPermitted.length);
-			const chunkCoordsBuffer = Buffer.alloc(4 * chunksPermitted.length);
-			const blocksBuffer = Buffer.alloc(25 * chunksPermitted.length);
-			chunksPermitted.forEach((chunk, i) => {
-				if (
-					chunk[0] >= map.size[0] / 2 ||
-					chunk[0] < -map.size[0] / 2 ||
-					chunk[1] >= map.size[1] / 2 ||
-					chunk[1] < -map.size[1] / 2
-				) {
-					permitChunkBuffer.writeUint8(4, i);
-				} else {
-					permitChunkBuffer.writeUint8(map.biome[chunk[0] + map.size[0] / 2][chunk[1] + map.size[1] / 2], i);
-				}
-			});
+export class ChunkData {
+	blocks: { id: string; type: BlockType; health: number }[] = new Array(25);
+	gen: bigint = 0n;
 
-			chunksPermitted.forEach((chunk, i) => {
-				if (
-					chunk[0] >= map.size[0] / 2 ||
-					chunk[0] < -map.size[0] / 2 ||
-					chunk[1] >= map.size[1] / 2 ||
-					chunk[1] < -map.size[1] / 2
-				) {
-					permitChunkBuffer.writeUint8(0, i + chunksPermitted.length);
-				} else {
-					permitChunkBuffer.writeUint8(
-						map.object[chunk[0] + map.size[0] / 2][chunk[1] + map.size[1] / 2],
-						i + chunksPermitted.length
-					);
-				}
-				blocksBuffer.fill(
-					worldData.blockData[chunk[0] + map.size[0] / 2][chunk[1] + map.size[1] / 2].blocks,
-					i * 25
+	serialize() {
+		const blockBuffers: Buffer[] = [];
+
+		for (let i = 0; i < this.blocks.length; i++) {
+			if (this.blocks[i]) {
+				const id = encodeString(this.blocks[i].id);
+				const bt = Buffer.from(new Uint8Array([blockTypeToNumber(this.blocks[i].type)]).buffer);
+				const bh = Buffer.from(new Uint16Array([this.blocks[i].health]).buffer);
+
+				blockBuffers.push(stitch(id, bt, bh));
+			} else {
+				blockBuffers.push(stitch(Buffer.alloc(1)));
+			}
+		}
+
+		return stitch(...blockBuffers);
+	}
+}
+
+export type BlockType = `${'wall' | 'door' | 'spikes'}-${'wood' | 'stone' | 'reinforced'}`;
+
+export function blockTypeToNumber(type: BlockType) {
+	switch (type) {
+		case 'wall-wood':
+			return 0;
+		case 'wall-stone':
+			return 1;
+		case 'wall-reinforced':
+			return 2;
+		case 'door-wood':
+			return 3;
+		case 'door-stone':
+			return 4;
+		case 'door-reinforced':
+			return 5;
+		case 'spikes-wood':
+			return 6;
+		case 'spikes-stone':
+			return 7;
+		case 'spikes-reinforced':
+			return 8;
+		default:
+			return -1;
+	}
+}
+
+export function blockNumberToType(num: number): BlockType | 'none' {
+	switch (num) {
+		case 0:
+			return 'wall-wood';
+		case 1:
+			return 'wall-stone';
+		case 2:
+			return 'wall-reinforced';
+		case 3:
+			return 'door-wood';
+		case 4:
+			return 'door-stone';
+		case 5:
+			return 'door-reinforced';
+		case 6:
+			return 'spikes-wood';
+		case 7:
+			return 'spikes-stone';
+		case 8:
+			return 'spikes-reinforced';
+		default:
+			return 'none';
+	}
+}
+
+function sendChunks(ecs: ECS) {
+	if (checkTimer(ecs)) return;
+	if (ecs.query([Player]).empty()) return;
+
+	const players = ecs.query([Player, Transform]).results();
+	const { chunkData } = ecs.getResource(WorldData);
+
+	for (const [{ socket }, { pos }] of players) {
+		const gridPos = pos.clone().div(500).floor();
+
+		const chunks: Buffer[] = [];
+
+		for (let y = gridPos.y - 5; y < gridPos.y + 5; y++) {
+			for (let x = gridPos.x - 5; x < gridPos.x + 5; x++) {
+				const coords = Buffer.from(new Int16Array([x, y]).buffer);
+				const info = Buffer.from(
+					new Uint16Array([
+						map.biome[x + map.size[0] / 2][y + map.size[1] / 2] ?? 0,
+						map.object[x + map.size[0] / 2][y + map.size[1] / 2] ?? 0,
+					]).buffer
 				);
-			});
+				const gen = Buffer.from(
+					new BigUint64Array([chunkData[x + map.size[0] / 2][y + map.size[1] / 2].gen]).buffer
+				);
+				const blocks = chunkData[x + map.size[0] / 2][y + map.size[1] / 2].serialize();
 
-			chunksPermitted.forEach((chunk, i) => {
-				permitChunkBuffer.writeInt16LE(chunk[0], i * 4 + 0 + 2 * chunksPermitted.length);
-				permitChunkBuffer.writeInt16LE(chunk[1], i * 4 + 2 + 2 * chunksPermitted.length);
-				chunkCoordsBuffer.writeInt16LE(chunk[0], i * 4 + 0);
-				chunkCoordsBuffer.writeInt16LE(chunk[1], i * 4 + 2);
-			});
+				chunks.push(stitch(coords, info, gen, blocks));
+			}
+		}
+		sendData(socket, 'chunks', stitch(...chunks));
+	}
 
-			sendData(event.socket, 'chunks-permitted', stitch(permitChunkBuffer, chunkCoordsBuffer, blocksBuffer));
-		});
+	setTimer(ecs, 50);
 }
 
 function listenBlocks(ecs: ECS) {
@@ -116,91 +148,38 @@ function listenBlocks(ecs: ECS) {
 			if (event.handler.path !== 'game' || event.type !== 'request-block-place') return;
 
 			const dataRaw = unstitch(event.body);
-			const targetUUID = decodeString(dataRaw[0]);
-			const requestLocation = dataRaw[1];
+			const pid = decodeString(dataRaw[0]);
+			const requestLocation = Vec2.deserialize(
+				dataRaw[1].buffer.slice(dataRaw[1].byteOffset, dataRaw[1].byteOffset + dataRaw[1].byteLength)
+			);
+			const requestBlocktype = blockNumberToType(new Uint8Array(dataRaw[2])[0]);
+			if (requestBlocktype === 'none') return;
 
 			const players = ecs.query([Player, Transform]).results();
-			let chunkToUpdate;
-			const worldData = ecs.getResource(WorldData);
 
-			for (let [player, transform] of players) {
-				if (player.id === targetUUID) {
-					if (
-						Math.abs(transform.pos.x - requestLocation.readInt16LE(0) * 100) < 4000 &&
-						Math.abs(transform.pos.y - requestLocation.readInt16LE(2) * 100) < 4000
-					) {
-						const chunk = new Vec2(
-							requestLocation.readInt16LE(0) / 5,
-							requestLocation.readInt16LE(2) / 5
-						).floor();
-						const block = new Vec2(
-							(requestLocation.readInt16LE(0) + map.size[0] * 2.5) % 5,
-							(requestLocation.readInt16LE(2) + map.size[1] * 2.5) % 5
-						);
+			const chunkToUpdate = requestLocation.clone().div(500).floor();
+			const { chunkData } = ecs.getResource(WorldData);
+			const chunk = chunkData[chunkToUpdate.x + map.size[0] / 2][chunkToUpdate.y + map.size[1] / 2];
 
-						if (
-							worldData.blockData[chunk.x + map.size[0] / 2][chunk.y + map.size[1] / 2].blocks[
-								block.x + block.y * 5
-							] == 0
-						) {
-							worldData.blockData[chunk.x + map.size[0] / 2][chunk.y + map.size[1] / 2].blocks[
-								block.x + block.y * 5
-							] = 1;
-							chunkToUpdate = chunk.clone();
-						}
-					}
-				}
-				break;
-			}
+			const block = requestLocation
+				.clone()
+				.div(50)
+				.map((x) => Math.abs(((x % 10) - 1) / 2));
 
-			if (chunkToUpdate) {
-				let chunkPos = Buffer.alloc(4);
-				chunkPos.writeInt16LE(chunkToUpdate.x, 0);
-				chunkPos.writeInt16LE(chunkToUpdate.y, 2);
+			if (requestLocation.y >= 0) block.y = 4 - block.y;
+			else block.y -= 1;
+			if (requestLocation.x <= 0) block.x = 4 - block.x + 1;
 
-				let chunkData = Buffer.alloc(2);
+			const index = block.x + block.y * 5;
 
-				if (
-					chunkToUpdate.x >= map.size[0] / 2 ||
-					chunkToUpdate.x < -map.size[0] / 2 ||
-					chunkToUpdate.y >= map.size[1] / 2 ||
-					chunkToUpdate.y < -map.size[1] / 2
-				) {
-					chunkData.writeUint8(0, 1);
-				} else {
-					chunkData.writeUint8(
-						map.object[chunkToUpdate.x + map.size[0] / 2][chunkToUpdate.y + map.size[1] / 2],
-						1
-					);
-				}
-
-				if (
-					chunkToUpdate.x >= map.size[0] / 2 ||
-					chunkToUpdate.x < -map.size[0] / 2 ||
-					chunkToUpdate.y >= map.size[1] / 2 ||
-					chunkToUpdate.y < -map.size[1] / 2
-				) {
-					chunkData.writeUint8(4, 0);
-				} else {
-					chunkData.writeUint8(
-						map.biome[chunkToUpdate.x + map.size[0] / 2][chunkToUpdate.y + map.size[1] / 2],
-						0
-					);
-				}
-
-				let blockData = Buffer.alloc(25);
-				blockData.fill(
-					worldData.blockData[chunkToUpdate.x + map.size[0] / 2][chunkToUpdate.y + map.size[1] / 2].blocks
-				);
-
-				getServerPath(ecs, 'game').server.clients.forEach((socket) => {
-					sendData(socket, 'chunk-update', stitch(chunkPos, chunkData, blockData));
-				});
+			if (chunk.blocks[index] === undefined) {
+				chunk.blocks[index] = makeBlock(requestBlocktype, pid);
+				chunk.gen++;
 			}
 		});
 }
 
 export function ChunksPlugin(ecs: ECS) {
 	ecs.insertResource(new WorldData());
-	ecs.addMainSystems(listenChunks, listenBlocks);
+	ecs.addMainSystems(sendChunks, listenBlocks);
 }
